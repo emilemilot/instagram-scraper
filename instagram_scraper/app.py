@@ -98,7 +98,7 @@ class InstagramScraper(object):
 
     def __init__(self, **kwargs):
         default_attr = dict(username='', usernames=[], filename=None,
-                            login_user=None, login_pass=None,
+                            login_user=None, login_pass=None,imapusername=None,imappassword=None,imaphost=None,imapport=None,
                             destination='./', retain_username=False, interactive=False,
                             quiet=False, maximum=0, media_metadata=False, latest=False,
                             latest_stamps=False, cookiejar=None,
@@ -135,7 +135,9 @@ class InstagramScraper(object):
         self.logger = InstagramScraper.get_logger(level=logging.DEBUG, verbose=default_attr.get('verbose'))
 
         self.posts = []
+
         self.session = requests.Session()
+
         self.session.headers = {'user-agent': CHROME_WIN_UA}
         if self.cookiejar and os.path.exists(self.cookiejar):
             with open(self.cookiejar, 'rb') as f:
@@ -232,6 +234,7 @@ class InstagramScraper(object):
         self.session.headers.update({'Referer': BASE_URL, 'user-agent': STORIES_UA})
         req = self.session.get(BASE_URL)
 
+
         self.session.headers.update({'X-CSRFToken': req.cookies['csrftoken']})
 
         login_data = {'username': self.login_user, 'password': self.login_pass}
@@ -239,7 +242,6 @@ class InstagramScraper(object):
         self.session.headers.update({'X-CSRFToken': login.cookies['csrftoken']})
         self.cookies = login.cookies
         login_text = json.loads(login.text)
-
         if login_text.get('authenticated') and login.status_code == 200:
             self.logged_in = True
             self.session.headers = {'user-agent': CHROME_WIN_UA}
@@ -271,13 +273,13 @@ class InstagramScraper(object):
         challenge = self.session.post(BASE_URL[:-1] + checkpoint_url, data=challenge_data, allow_redirects=True)
         self.session.headers.update({'X-CSRFToken': challenge.cookies['csrftoken'], 'X-Instagram-AJAX': '1'})
 
-
-        mail = imaplib.IMAP4_SSL('imap.gmail.com',993)
-        mail.login("emile.milot2@gmail.com", "xxxx")
+        mail = imaplib.IMAP4_SSL(self.imaphost,self.imapport)
+        mail.login(self.imapusername, self.imappassword)
         mail.list()
         mail.select('inbox')
         result, data = mail.uid('search', None, '(UNSEEN) (FROM security@mail.instagram.com) (SUBJECT "Verify Your Account")')
         i = len(data[0].split())
+        m=[]
         for x in range(i):
             latest_email_uid = data[0].split()[x]
             r, email_data = mail.uid('fetch', latest_email_uid, '(RFC822)')
@@ -287,7 +289,6 @@ class InstagramScraper(object):
         if len(m) > 0:
             code = m[len(m)-1]
         mail.logout()
-
         #code = int(input('Enter code received: '))
         code_data = {'security_code': code}
         code = self.session.post(BASE_URL[:-1] + checkpoint_url, data=code_data, allow_redirects=True)
@@ -1192,6 +1193,20 @@ def main():
         fromfile_prefix_chars='@')
 
     parser.add_argument('username', help='Instagram user(s) to scrape', nargs='*')
+
+    parser.add_argument('--imapusername', '--imapusername', '-imusr', default=None, help='IMAP usernamer', required=True)
+    parser.add_argument('--imappassword', '--imappassword', '-impas', default=None, help='IMAP password', required=True)
+    parser.add_argument('--imaphost', '--imaphost', '-imhst', default=None, help='IMAP host', required=True)
+    parser.add_argument('--imapport', '--imapport', '-imprt', default=None, help='IMAP port', required=True)
+
+    #instagram-scraper -i -u emile.milot2 -p xxxx 
+    #--imapusername emile.milot@gmail.com 
+    #--imappassword xxx 
+    #--imapport 993 
+    #--imaphost imap.gmail.com
+    
+
+
     parser.add_argument('--destination', '-d', default='./', help='Download destination')
     parser.add_argument('--login-user', '--login_user', '-u', default=None, help='Instagram login user', required=True)
     parser.add_argument('--login-pass', '--login_pass', '-p', default=None, help='Instagram login password', required=True)
