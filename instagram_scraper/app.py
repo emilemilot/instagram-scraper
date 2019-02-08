@@ -279,10 +279,10 @@ class InstagramScraper(object):
         result, data = mail.uid('search', None, '(UNSEEN) (FROM security@mail.instagram.com) (SUBJECT "Verify Your Account")')
         i = len(data[0].split())
         for x in range(i):
-        latest_email_uid = data[0].split()[x]
-        r, email_data = mail.uid('fetch', latest_email_uid, '(RFC822)')
-        raw_email = strip_tags(email_data[0][1])
-        m = re.findall(r"\d\d\d\d\d\d",raw_email)
+            latest_email_uid = data[0].split()[x]
+            r, email_data = mail.uid('fetch', latest_email_uid, '(RFC822)')
+            raw_email = strip_tags(email_data[0][1])
+            m = re.findall(r"\d\d\d\d\d\d",raw_email)
         code = 0
         if len(m) > 0:
             code = m[len(m)-1]
