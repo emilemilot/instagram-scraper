@@ -28,9 +28,26 @@ import threading
 import concurrent.futures
 import requests
 import tqdm
+import imaplib
+import email
+import re
+from HTMLParser import HTMLParser
 
 from instagram_scraper.constants import *
 
+class MLStripper(HTMLParser):
+    def __init__(self):
+        self.reset()
+        self.fed = []
+    def handle_data(self, d):
+        self.fed.append(d)
+    def get_data(self):
+        return ''.join(self.fed)
+
+def strip_tags(html):
+    s = MLStripper()
+    s.feed(html)
+    return s.get_data()
 
 
 try:
@@ -249,12 +266,29 @@ class InstagramScraper(object):
         self.session.headers.update({'X-CSRFToken': req.cookies['csrftoken'], 'X-Instagram-AJAX': '1'})
 
         self.session.headers.update({'Referer': BASE_URL[:-1] + checkpoint_url})
-        mode = int(input('Choose a challenge mode (0 - SMS, 1 - Email): '))
-        challenge_data = {'choice': mode}
+        #mode = int(input('Choose a challenge mode (0 - SMS, 1 - Email): '))
+        challenge_data = {'choice': 1}
         challenge = self.session.post(BASE_URL[:-1] + checkpoint_url, data=challenge_data, allow_redirects=True)
         self.session.headers.update({'X-CSRFToken': challenge.cookies['csrftoken'], 'X-Instagram-AJAX': '1'})
 
-        code = int(input('Enter code received: '))
+
+        mail = imaplib.IMAP4_SSL('imap.gmail.com',993)
+        mail.login("emile.milot2@gmail.com", "xxxx")
+        mail.list()
+        mail.select('inbox')
+        result, data = mail.uid('search', None, '(UNSEEN) (FROM security@mail.instagram.com) (SUBJECT "Verify Your Account")')
+        i = len(data[0].split())
+        for x in range(i):
+        latest_email_uid = data[0].split()[x]
+        r, email_data = mail.uid('fetch', latest_email_uid, '(RFC822)')
+        raw_email = strip_tags(email_data[0][1])
+        m = re.findall(r"\d\d\d\d\d\d",raw_email)
+        code = 0
+        if len(m) > 0:
+            code = m[len(m)-1]
+        mail.logout()
+
+        #code = int(input('Enter code received: '))
         code_data = {'security_code': code}
         code = self.session.post(BASE_URL[:-1] + checkpoint_url, data=code_data, allow_redirects=True)
         self.session.headers.update({'X-CSRFToken': code.cookies['csrftoken']})
